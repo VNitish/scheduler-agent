@@ -65,60 +65,27 @@ Scheduler Agent is a full-stack application that demonstrates modern agentic AI 
 
 The agent operates through a sophisticated tool-calling mechanism. When processing a request, the LLM decides which tools to invoke and with what parameters.
 
-```typescript
-// Available Tools
-{
-  checkAvailability: {
-    description: "Find available time slots",
-    parameters: { duration, startDate, endDate, timePreference, excludeDays, notBefore, notAfter }
-  },
-  scheduleMeeting: {
-    description: "Create a calendar event",
-    parameters: { title, startTime, duration, attendees, description }
-  },
-  findCalendarEvent: {
-    description: "Search for existing events by title",
-    parameters: { query, startDate, endDate }
-  },
-  // ... more tools
-}
-```
+**Available Tools:**
 
-**Example Flow:**
-```
-User: "Schedule a 30-minute sync with Sarah tomorrow, not too early"
-
-Agent reasoning:
-1. Parse intent: schedule meeting
-2. Identify constraints: 30 min, tomorrow, morning avoided
-3. Look up Sarah's email from contacts
-4. Call checkAvailability(duration: 30, startDate: tomorrow, notBefore: 10)
-5. Present options to user
-6. On selection, call scheduleMeeting(...)
-```
+| Tool | Description |
+|------|-------------|
+| `checkAvailability` | Find available time slots with filters (duration, date range, time preference, exclude days) |
+| `scheduleMeeting` | Create a new calendar event with title, time, duration, and attendees |
+| `findCalendarEvent` | Search for existing events by title or query |
+| `getLastMeetingOfDay` | Get the last meeting on a specific day |
+| `updateMeeting` | Modify an existing meeting (title, time, duration) |
+| `deleteMeeting` | Remove a meeting from the calendar |
+| `getUserContext` | Retrieve user preferences and settings |
+| `updateUserContext` | Update user preferences |
+| `get_meetings` | Get meetings for a specific date |
+| `get_todays_meetings` | Get all meetings scheduled for today |
+| `add_contact` | Add a new contact with name, email, nickname |
+| `update_contact` | Update existing contact information |
+| `get_contacts` | Search or list saved contacts |
 
 ### 2. Contextual Understanding
 
-The agent maintains rich context about the user:
-
-```typescript
-interface UserContext {
-  timezone: string;              // "Asia/Kolkata"
-  workingHoursStart: number;     // 9
-  workingHoursEnd: number;       // 18
-  workingDays: number[];         // [1,2,3,4,5] (Mon-Fri)
-  preferredMeetingDuration: number;
-  bufferBetweenMeetings: number;
-  mealTimings: {
-    lunch: { start: string, end: string }
-  };
-  summary: string;               // Free-form notes about the user
-}
-```
-
-This context is injected into every conversation, enabling responses like:
-- "I see you prefer not to schedule meetings during your lunch break (1-2 PM)"
-- "Since you work Monday through Friday, I'll look at next week's availability"
+The agent maintains rich context about the user including timezone, working hours, working days, preferred meeting duration, buffer times, meal timings, and personal notes. This context is injected into every conversation for personalized assistance.
 
 ### 3. Relative Time Resolution
 
@@ -239,99 +206,9 @@ npm run dev
 
 Visit `http://localhost:3000` and sign in with Google.
 
-## Usage Examples
-
-### Text Chat
-
-```
-You: Schedule a team standup for tomorrow at 10am
-Agent: I've scheduled "Team Standup" for tomorrow (Tuesday, Feb 7) at 10:00 AM.
-       The meeting is set for 30 minutes. Would you like to add any attendees?
-
-You: Add john@company.com and sarah@company.com
-Agent: Done! I've added John and Sarah to the meeting. They'll receive calendar invites.
-```
-
-### Complex Scheduling
-
-```
-You: Find time for a 1-hour planning session next week, but not Wednesday,
-     and preferably in the afternoon after my lunch break
-
-Agent: Based on your calendar and preferences (lunch 1-2 PM), here are available slots:
-       1. Monday 2:00 PM - 3:00 PM
-       2. Tuesday 3:00 PM - 4:00 PM
-       3. Friday 2:30 PM - 3:30 PM
-
-       Which works best for you?
-```
-
-### Context-Aware Responses
-
-```
-You: Move my 3pm to after the client call
-
-Agent: I found your "Project Review" at 3:00 PM and the "Client Call" ending at 4:30 PM.
-       I've rescheduled "Project Review" to 4:45 PM (with your usual 15-min buffer).
-       Does this work?
-```
-
 ## Technical Highlights
 
-### Timezone-Aware Date Handling
+- **Timezone-Aware**: All date/time operations respect the user's timezone
+- **Auto Token Refresh**: OAuth tokens are automatically refreshed for uninterrupted calendar access
+- **Monorepo Architecture**: Turborepo enables shared packages, parallel builds, and clear separation of concerns
 
-All date/time operations respect the user's timezone:
-
-```typescript
-// Correctly handles "10 AM tomorrow" in user's timezone
-const userTimezone = context.timezone; // "Asia/Kolkata"
-const slots = await calendarService.findAvailableSlots(
-  duration,
-  startDate,
-  endDate,
-  timePreference,
-  userTimezone  // Times interpreted in user's timezone
-);
-```
-
-### Token Refresh Flow
-
-Automatic OAuth token refresh ensures uninterrupted calendar access:
-
-```typescript
-const calendarService = new CalendarService(
-  accessToken,
-  refreshToken,
-  async (newTokens) => {
-    // Automatically persist refreshed tokens
-    await db.update(users).set({
-      googleAccessToken: newTokens.access_token
-    });
-  }
-);
-```
-
-### Monorepo Benefits
-
-Using Turborepo enables:
-- Shared packages across web and potential mobile apps
-- Parallel builds and caching
-- Clear separation of concerns
-- Easy testing of individual packages
-
-## Contributing
-
-Contributions are welcome! Areas of interest:
-
-- Additional calendar providers (Outlook, Apple Calendar)
-- More sophisticated scheduling algorithms
-- Meeting preparation features (agenda generation)
-- Integration with video conferencing (Zoom, Meet)
-
-## License
-
-MIT
-
----
-
-Built with modern agentic AI patterns to demonstrate autonomous task completion, tool use, and context-aware assistance.
