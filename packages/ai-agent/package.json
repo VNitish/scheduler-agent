@@ -1,0 +1,14 @@
+{
+  "name": "@repo/ai-agent",
+  "version": "1.0.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "chrono-node": "^2.7.8",
+    "openai": "^4.77.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.9",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "scheduler-agent",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "db:generate": "turbo run db:generate",
+    "db:push": "turbo run db:push",
+    "db:studio": "turbo run db:studio"
+  },
+  "devDependencies": {
+    "@turbo/gen": "^2.3.3",
+    "prettier": "^3.2.5",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "npm@11.8.0",
+  "engines": {
+    "node": ">=18"
+  }
+}
