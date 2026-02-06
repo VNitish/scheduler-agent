@@ -346,7 +346,7 @@ export class SchedulerAgent {
               },
               startTime: {
                 type: 'string',
-                description: 'Start time in ISO 8601 format',
+                description: 'Start time in ISO format YYYY-MM-DDTHH:MM:SS in the USER\'s LOCAL TIMEZONE. Do NOT convert to UTC. For example, if user says "10 AM" and their timezone is Asia/Kolkata, pass "2024-02-06T10:00:00" (not UTC converted).',
               },
               duration: {
                 type: 'number',

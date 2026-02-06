@@ -230,6 +230,30 @@ export class CalendarService {
   async createMeeting(meeting: MeetingInput): Promise<string> {
     try {
       const endTime = new Date(meeting.startTime.getTime() + meeting.duration * 60000);
+      const timezone = meeting.timeZone || 'UTC';
+
+      // Format datetime for Google Calendar API
+      // When a timezone is provided, we should NOT use toISOString() as that converts to UTC
+      // Instead, format as YYYY-MM-DDTHH:MM:SS in the local timezone
+      const formatDateTimeForTimezone = (date: Date, tz: string): string => {
+        // Get components in the target timezone
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+          timeZone: tz,
+        });
+        const parts = formatter.formatToParts(date);
+        const get = (type: string) => parts.find(p => p.type === type)?.value || '00';
+        return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
+      };
+
+      const startDateTime = formatDateTimeForTimezone(meeting.startTime, timezone);
+      const endDateTime = formatDateTimeForTimezone(endTime, timezone);
 
       const event = await this.calendar.events.insert({
         calendarId: 'primary',
@@ -237,12 +261,12 @@ export class CalendarService {
           summary: meeting.title,
           description: meeting.description,
           start: {
-            dateTime: meeting.startTime.toISOString(),
-            timeZone: meeting.timeZone || 'UTC',
+            dateTime: startDateTime,
+            timeZone: timezone,
           },
           end: {
-            dateTime: endTime.toISOString(),
-            timeZone: meeting.timeZone || 'UTC',
+            dateTime: endDateTime,
+            timeZone: timezone,
           },
           attendees: meeting.attendees?.map((email) => ({ email })),
           reminders: {
@@ -272,18 +296,36 @@ export class CalendarService {
   async updateMeeting(eventId: string, updates: Partial<MeetingInput>): Promise<void> {
     try {
       const updateData: any = {};
+      const timezone = updates.timeZone || 'UTC';
+
+      // Helper to format datetime in timezone (same as createMeeting)
+      const formatDateTimeForTimezone = (date: Date, tz: string): string => {
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+          timeZone: tz,
+        });
+        const parts = formatter.formatToParts(date);
+        const get = (type: string) => parts.find(p => p.type === type)?.value || '00';
+        return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
+      };
 
       if (updates.title) updateData.summary = updates.title;
       if (updates.description) updateData.description = updates.description;
       if (updates.startTime && updates.duration) {
         const endTime = new Date(updates.startTime.getTime() + updates.duration * 60000);
         updateData.start = {
-          dateTime: updates.startTime.toISOString(),
-          timeZone: updates.timeZone || 'UTC',
+          dateTime: formatDateTimeForTimezone(updates.startTime, timezone),
+          timeZone: timezone,
         };
         updateData.end = {
-          dateTime: endTime.toISOString(),
-          timeZone: updates.timeZone || 'UTC',
+          dateTime: formatDateTimeForTimezone(endTime, timezone),
+          timeZone: timezone,
         };
       }
 

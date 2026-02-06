@@ -217,12 +217,13 @@ export async function POST(req: NextRequest) {
         try {
           const startTime = new Date(start_time);
 
-          // Create in Google Calendar
+          // Create in Google Calendar with user's timezone
           const googleEventId = await calendarService.createMeeting({
             title: title || 'Meeting',
             startTime,
             duration: duration || 30,
             attendees: attendees || [],
+            timeZone: userTimezone,
           });
 
           // Save to database
@@ -346,6 +347,7 @@ export async function POST(req: NextRequest) {
           if (title) updates.title = title;
           if (start_time) updates.startTime = new Date(start_time);
           if (duration) updates.duration = duration;
+          updates.timeZone = userTimezone;
 
           await calendarService.updateMeeting(meeting_id, updates);
 

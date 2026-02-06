@@ -284,12 +284,16 @@ export async function POST(req: NextRequest) {
           }
 
           try {
+            // Get user's timezone for proper calendar event creation
+            const userTimezone = serializedContext?.timezone || 'UTC';
+
             const googleEventId = await calendarService.createMeeting({
               title: args.title,
               description: args.description,
               startTime: new Date(args.startTime),
               duration: args.duration,
               attendees: args.attendees,
+              timeZone: userTimezone,
             });
 
             const [meeting] = await db
@@ -415,11 +419,14 @@ export async function POST(req: NextRequest) {
           }
 
           try {
+            const userTimezone = serializedContext?.timezone || 'UTC';
+
             await calendarService.updateMeeting(args.eventId, {
               title: args.title,
               description: args.description,
               startTime: args.startTime ? new Date(args.startTime) : undefined,
               duration: args.duration,
+              timeZone: userTimezone,
             });
 
             // Also update in our database if we have it
