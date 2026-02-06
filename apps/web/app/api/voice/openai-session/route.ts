@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, users, conversations, meetings, userContext, userContacts, eq, and, sql } from '@repo/database';
+import { SYSTEM_PROMPTS } from '@repo/ai-agent/src/prompts';
 
 /**
  * Creates an ephemeral session token for OpenAI Realtime API
@@ -143,17 +144,14 @@ function buildSystemPrompt(
 
   const userName = user.name || context?.displayName || 'the user';
 
-  // Start with the base prompt template
-  let prompt = `You are a friendly AI scheduling assistant. Today is ${today}. Current time is ${currentTime} (${userTimezone}).
-
-## USER CONTEXT
-${context ? formatUserContext(context, userName) : ''}
-
-## USER CONTACTS
-${contacts && contacts.length > 0 ? formatContactsList(contacts) : ''}
-
-## RECENT MEETINGS (Last 7 Days)
-${recentMeetings && recentMeetings.length > 0 ? formatRecentMeetings(recentMeetings, userTimezone) : ''}`;
+  // Start with the base prompt template from centralized prompts
+  let prompt = SYSTEM_PROMPTS.OPENAI_REALTIME_VOICE_AGENT
+    .replace('{{DATE}}', today)
+    .replace('{{TIME}}', currentTime)
+    .replace('{{TIMEZONE}}', userTimezone)
+    .replace('{{USER_CONTEXT}}', context ? formatUserContext(context, userName) : '')
+    .replace('{{CONTACTS_LIST}}', contacts && contacts.length > 0 ? formatContactsList(contacts) : '')
+    .replace('{{RECENT_MEETINGS}}', recentMeetings && recentMeetings.length > 0 ? formatRecentMeetings(recentMeetings, userTimezone) : '');
 
   return prompt;
 }
