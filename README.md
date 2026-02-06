@@ -87,19 +87,9 @@ The agent operates through a sophisticated tool-calling mechanism. When processi
 
 The agent maintains rich context about the user including timezone, working hours, working days, preferred meeting duration, buffer times, meal timings, and personal notes. This context is injected into every conversation for personalized assistance.
 
-### 3. Relative Time Resolution
 
-The agent understands complex temporal references:
 
-| User Says | Agent Understands |
-|-----------|-------------------|
-| "before my flight on Friday" | Finds the flight event, schedules before it |
-| "a day after the kickoff" | Locates "kickoff" event, adds 1 day |
-| "last weekday of the month" | Calculates the exact date |
-| "not too early" | Applies notBefore: 9 or 10 AM |
-| "usual sync-up time" | References user's meeting patterns |
-
-### 4. Voice Agent Integration
+### 3. Voice Agent Integration
 
 Two voice interfaces demonstrate different approaches to conversational AI:
 
@@ -115,7 +105,7 @@ Two voice interfaces demonstrate different approaches to conversational AI:
 
 Both voice agents share the same tool registry as the text chat, ensuring consistent behavior across modalities.
 
-### 5. Conversation Evaluation
+### 4. Conversation Evaluation
 
 Built-in evaluation system scores conversations on:
 
@@ -160,51 +150,145 @@ scheduler-agent/
 └── package.json
 ```
 
+## Design Choices & How It Works
+
+### Agent Architecture
+
+The scheduler agent follows a **tool-calling LLM pattern** where the AI model acts as an orchestrator that decides which actions to take based on user input:
+
+1. **User sends a message** → "Schedule a meeting with John tomorrow at 2pm"
+2. **LLM analyzes intent** → Determines this requires checking availability and creating an event
+3. **Tool execution** → Agent calls `check_availability`, then `schedule_meeting`
+4. **Response generation** → LLM formats the result in natural language
+
+This approach was chosen over hardcoded workflows because it allows the agent to handle novel requests without explicit programming for every scenario.
+
+### Why This Stack?
+
+| Choice | Reasoning |
+|--------|-----------|
+| **Next.js 15 (App Router)** | Server components reduce client bundle, API routes colocate with frontend |
+| **Turborepo Monorepo** | Shared packages (ai-agent, calendar, database) avoid code duplication |
+| **Drizzle ORM** | Type-safe database queries, lightweight, great DX |
+| **PostgreSQL** | Reliable, supports JSON for flexible schema (preferences, contacts) |
+
+### Timezone Handling
+
+All times are stored in UTC but displayed in the user's timezone. When a user logs in, their timezone is auto-detected from Google Calendar settings and stored in their profile. The agent's system prompt includes the current time in the user's timezone to ensure accurate scheduling.
+
+### Voice Integration Design
+
+Two voice providers are supported to demonstrate different integration patterns:
+
+- **OpenAI Realtime API**: Direct WebRTC connection, native tool calling, lowest latency
+- **ElevenLabs Conversational AI**: WebSocket-based, superior voice quality, client-side tool execution
+
+Both share the same backend tool handlers (`/api/voice/tools`), ensuring consistent behavior regardless of voice provider.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
-- PostgreSQL database
-- Google Cloud Console project with Calendar API enabled
-- OpenAI API key
-- ElevenLabs API key (optional, for voice)
+Before you begin, ensure you have:
 
-### Environment Variables
+- **Node.js 18+** installed ([download](https://nodejs.org/))
+- **PostgreSQL** database running locally or a cloud instance (e.g., Supabase, Neon)
+- **Google Cloud Console** project with Calendar API enabled
+- **OpenAI API key** ([get one](https://platform.openai.com/api-keys))
+- **ElevenLabs account** (optional, for voice features)
 
-Create a `.env.local` file in `apps/web/`:
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/VNitish/scheduler-agent.git
+cd scheduler-agent
+```
+
+### Step 2: Install Dependencies
+
+```bash
+npm install
+```
+
+This installs all dependencies for the monorepo including the web app and shared packages.
+
+### Step 3: Set Up Google Cloud Console
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (or select existing)
+3. Enable the **Google Calendar API**:
+   - Navigate to APIs & Services → Library
+   - Search for "Google Calendar API" and enable it
+4. Configure OAuth consent screen:
+   - Go to APIs & Services → OAuth consent screen
+   - Choose "External" user type
+   - Fill in app name, support email
+   - Add scopes: `openid`, `email`, `profile`, `calendar`, `calendar.events`
+5. Create OAuth credentials:
+   - Go to APIs & Services → Credentials
+   - Click "Create Credentials" → "OAuth client ID"
+   - Application type: "Web application"
+   - Add authorized JavaScript origins: `http://localhost:3000`
+   - Add authorized redirect URIs: `http://localhost:3000`
+   - Copy the Client ID and Client Secret
+
+### Step 4: Configure Environment Variables
+
+Create a `.env` file in the root directory:
 
 ```env
-# Database
+# Database (PostgreSQL connection string)
 DATABASE_URL="postgresql://user:password@localhost:5432/scheduler"
 
-# Google OAuth
-GOOGLE_CLIENT_ID="your-client-id"
+# Google OAuth (from Step 3)
+GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET="your-client-secret"
-NEXT_PUBLIC_GOOGLE_CLIENT_ID="your-client-id"
+NEXT_PUBLIC_GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
 
-# OpenAI
+# OpenAI API Key
 OPENAI_API_KEY="sk-..."
 
-# ElevenLabs (optional)
-ELEVENLABS_API_KEY="your-key"
+# ElevenLabs (optional - for voice features)
+ELEVENLABS_API_KEY="your-elevenlabs-key"
 ELEVENLABS_AGENT_ID="your-agent-id"
 ```
 
-### Installation
+### Step 5: Set Up the Database
 
 ```bash
-# Install dependencies
-npm install
-
-# Set up database
+# Push the schema to your database
 npm run db:push
+```
 
-# Start development server
+This creates all necessary tables (users, meetings, conversations, messages, etc.).
+
+### Step 6: Run the Development Server
+
+```bash
 npm run dev
 ```
 
-Visit `http://localhost:3000` and sign in with Google.
+The app will be available at `http://localhost:3000`.
+
+### Step 7: Sign In and Connect Calendar
+
+1. Open `http://localhost:3000`
+2. Click "Sign in with Google"
+3. Grant calendar permissions when prompted
+4. Your timezone will be auto-detected from Google Calendar
+5. Start chatting with the agent!
+
+### Optional: Set Up ElevenLabs Voice Agent
+
+If you want voice features with ElevenLabs:
+
+1. Create an account at [ElevenLabs](https://elevenlabs.io/)
+2. Go to Conversational AI → Create Agent
+3. Configure the agent with the system prompt and tools (see docs)
+4. Copy the Agent ID to your `.env` file
+5. The voice button will appear in the dashboard
 
 ## Technical Highlights
 
