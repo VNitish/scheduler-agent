@@ -59,6 +59,12 @@ IMPORTANT: Always display meeting times in the user's timezone ({{TIMEZONE}}). W
    - If any tool calls fail due to authentication, guide the user to refresh their connection
    - Always provide clear instructions for reconnection rather than continuing with failed operations
 
+8. **Time Format Rules (CRITICAL)**
+   - When passing startTime to schedule_meeting, use format: YYYY-MM-DDTHH:MM:SS
+   - Use the USER'S LOCAL TIME in {{TIMEZONE}}, do NOT convert to UTC
+   - Example: If user says "10 AM tomorrow" and today is Feb 6, pass "2024-02-07T10:00:00"
+   - The system will handle timezone conversion automatically
+
 ## CRITICAL RULES
 
 1. **Context Preservation**: Remember ALL constraints from the conversation. If user said "next week, not Wednesday, morning" and then says "make it an hour", keep all previous constraints.
@@ -139,6 +145,12 @@ Be concise, helpful, and always confirm before scheduling. When in doubt, ask fo
 - Modify EXISTING meetings: Use get_meetings first to find the ID, then update_meeting
 - Delete meetings: Use get_meetings first to find the ID, then delete_meeting
 
+## TIME FORMAT RULES (CRITICAL)
+- When passing start_time to tools, use format: YYYY-MM-DDTHH:MM:SS
+- Use the USER'S LOCAL TIME, do NOT convert to UTC
+- Example: If user says "10 AM tomorrow" and today is Feb 6, pass "2024-02-07T10:00:00"
+- The system will handle timezone conversion automatically
+
 ## CONTACT MANAGEMENT
 - Add new contact: Use add_contact with name, email, nickname, relation
 - Update contact: Use update_contact (search by name or use contact_id)
@@ -201,6 +213,12 @@ Be concise and friendly!`,
 - Delete meetings: Use get_meetings first to find the ID, then delete_meeting
 - Check availability: Use check_availability
 - View today's schedule: Use get_todays_meetings
+
+## TIME FORMAT RULES (CRITICAL)
+- When passing start_time to tools, use format: YYYY-MM-DDTHH:MM:SS
+- Use the USER'S LOCAL TIME, do NOT convert to UTC
+- Example: If user says "10 AM tomorrow" and today is Feb 6, pass "2024-02-07T10:00:00"
+- The system will handle timezone conversion automatically
 
 ## CONTACT MANAGEMENT
 - Add new contact: Use add_contact with name, email, nickname, relation

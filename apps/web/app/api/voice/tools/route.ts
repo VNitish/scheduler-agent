@@ -61,6 +61,77 @@ function formatDateInTimezone(date: Date, timezone: string, options?: Intl.DateT
 }
 
 /**
+ * Parse a datetime string (YYYY-MM-DDTHH:MM:SS) as if it's in the user's timezone
+ * and convert it to a proper Date object (which is always UTC internally)
+ *
+ * This is needed because the LLM passes times in the user's local timezone format
+ * but new Date() would parse them in the server's timezone (UTC)
+ *
+ * Handles all timezone offsets including half-hour offsets (e.g., Asia/Kolkata UTC+5:30)
+ */
+function parseDateTimeInTimezone(dateTimeStr: string, timezone: string): Date {
+  // Remove any trailing Z or timezone offset to treat as local time
+  const cleanStr = dateTimeStr.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
+
+  // Parse the components
+  const [datePart, timePart] = cleanStr.split('T');
+  if (!datePart) {
+    return new Date(dateTimeStr); // Fallback to standard parsing
+  }
+
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute, second] = (timePart || '00:00:00').split(':').map(Number);
+
+  // Create a date at the specified time in UTC
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0));
+
+  // Get what time it would be in the target timezone if we were at this UTC time
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  // Get the offset by comparing UTC time to timezone time
+  const parts = formatter.formatToParts(utcDate);
+  const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+
+  const tzYear = getPart('year');
+  const tzMonth = getPart('month');
+  const tzDay = getPart('day');
+  const tzHour = getPart('hour');
+  const tzMinute = getPart('minute');
+
+  // Calculate the total offset in minutes (handles half-hour offsets like UTC+5:30)
+  const inputTotalMinutes = (day * 24 * 60) + (hour * 60) + (minute || 0);
+  const tzTotalMinutes = (tzDay * 24 * 60) + (tzHour * 60) + tzMinute;
+
+  // Handle month/year boundary crossing (simplified)
+  let offsetMinutes = tzTotalMinutes - inputTotalMinutes;
+
+  // Handle month boundary crossing
+  if (tzMonth !== month || tzYear !== year) {
+    if (tzMonth > month || tzYear > year) {
+      // Timezone is ahead, crossed into next month
+      offsetMinutes += 30 * 24 * 60; // Approximate
+    } else {
+      // Timezone is behind, crossed into previous month
+      offsetMinutes -= 30 * 24 * 60; // Approximate
+    }
+  }
+
+  // Adjust the UTC date by the offset to get the correct UTC time
+  const adjustedDate = new Date(utcDate.getTime() - offsetMinutes * 60 * 1000);
+
+  return adjustedDate;
+}
+
+/**
  * Voice Tool Webhook
  * Called when the AI agent needs to execute a tool (check availability, schedule, update, delete meeting)
  */
@@ -215,7 +286,9 @@ export async function POST(req: NextRequest) {
         const { title, start_time, duration, attendees } = parameters;
 
         try {
-          const startTime = new Date(start_time);
+          // Parse the time as if it's in the user's timezone
+          // The LLM should pass times like "2024-02-06T10:00:00" meaning 10 AM in user's local time
+          const startTime = parseDateTimeInTimezone(start_time, userTimezone);
 
           // Create in Google Calendar with user's timezone
           const googleEventId = await calendarService.createMeeting({
@@ -343,9 +416,12 @@ export async function POST(req: NextRequest) {
         }
 
         try {
+          // Parse start_time in user's timezone if provided
+          const parsedStartTime = start_time ? parseDateTimeInTimezone(start_time, userTimezone) : undefined;
+
           const updates: any = {};
           if (title) updates.title = title;
-          if (start_time) updates.startTime = new Date(start_time);
+          if (parsedStartTime) updates.startTime = parsedStartTime;
           if (duration) updates.duration = duration;
           updates.timeZone = userTimezone;
 
@@ -356,10 +432,10 @@ export async function POST(req: NextRequest) {
             .update(meetings)
             .set({
               ...(title && { title }),
-              ...(start_time && { startTime: new Date(start_time) }),
+              ...(parsedStartTime && { startTime: parsedStartTime }),
               ...(duration && { duration }),
-              ...(start_time && duration && {
-                endTime: new Date(new Date(start_time).getTime() + duration * 60000),
+              ...(parsedStartTime && duration && {
+                endTime: new Date(parsedStartTime.getTime() + duration * 60000),
               }),
             })
             .where(eq(meetings.googleEventId, meeting_id));
@@ -367,8 +443,8 @@ export async function POST(req: NextRequest) {
           let updateDescription = 'Updated the meeting';
           if (title) updateDescription = `Renamed the meeting to "${title}"`;
           if (duration) updateDescription += ` and set duration to ${duration} minutes`;
-          if (start_time) {
-            const newTime = formatTimeInTimezone(new Date(start_time), userTimezone);
+          if (parsedStartTime) {
+            const newTime = formatTimeInTimezone(parsedStartTime, userTimezone);
             updateDescription += ` at ${newTime}`;
           }
 
@@ -470,7 +546,7 @@ export async function POST(req: NextRequest) {
             nicknames: nicknames.length > 0 ? nicknames : [],
             relation: relation || null,
             company: null,
-            timezone: 'UTC', // Default timezone
+            timezone: userTimezone, // Use user's timezone as default for contacts
           }).returning();
 
           let response = `Added ${name} to your contacts`;

@@ -26,6 +26,71 @@ function convertDatesToISO<T>(obj: T): T {
   return obj;
 }
 
+/**
+ * Parse a datetime string (YYYY-MM-DDTHH:MM:SS) as if it's in the user's timezone
+ * and convert it to a proper Date object (which is always UTC internally)
+ *
+ * Handles all timezone offsets including half-hour offsets (e.g., Asia/Kolkata UTC+5:30)
+ */
+function parseDateTimeInTimezone(dateTimeStr: string, timezone: string): Date {
+  // Remove any trailing Z or timezone offset to treat as local time
+  const cleanStr = dateTimeStr.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
+
+  // Parse the components
+  const [datePart, timePart] = cleanStr.split('T');
+  if (!datePart) {
+    return new Date(dateTimeStr); // Fallback to standard parsing
+  }
+
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute, second] = (timePart || '00:00:00').split(':').map(Number);
+
+  // Create a date at the specified time in UTC
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0));
+
+  // Get what time it would be in the target timezone if we were at this UTC time
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(utcDate);
+  const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+
+  const tzYear = getPart('year');
+  const tzMonth = getPart('month');
+  const tzDay = getPart('day');
+  const tzHour = getPart('hour');
+  const tzMinute = getPart('minute');
+
+  // Calculate the total offset in minutes (handles half-hour offsets like UTC+5:30)
+  const inputTotalMinutes = (day * 24 * 60) + (hour * 60) + (minute || 0);
+  const tzTotalMinutes = (tzDay * 24 * 60) + (tzHour * 60) + tzMinute;
+
+  // Handle month/year boundary crossing (simplified)
+  let offsetMinutes = tzTotalMinutes - inputTotalMinutes;
+
+  // Handle month boundary crossing
+  if (tzMonth !== month || tzYear !== year) {
+    if (tzMonth > month || tzYear > year) {
+      offsetMinutes += 30 * 24 * 60;
+    } else {
+      offsetMinutes -= 30 * 24 * 60;
+    }
+  }
+
+  // Adjust the UTC date by the offset
+  const adjustedDate = new Date(utcDate.getTime() - offsetMinutes * 60 * 1000);
+
+  return adjustedDate;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { message, conversationId } = await req.json();
@@ -287,10 +352,14 @@ export async function POST(req: NextRequest) {
             // Get user's timezone for proper calendar event creation
             const userTimezone = serializedContext?.timezone || 'UTC';
 
+            // Parse the time in user's timezone
+            // The LLM should pass times like "2024-02-06T10:00:00" meaning 10 AM in user's local time
+            const startTime = parseDateTimeInTimezone(args.startTime, userTimezone);
+
             const googleEventId = await calendarService.createMeeting({
               title: args.title,
               description: args.description,
-              startTime: new Date(args.startTime),
+              startTime,
               duration: args.duration,
               attendees: args.attendees,
               timeZone: userTimezone,
@@ -302,8 +371,8 @@ export async function POST(req: NextRequest) {
                 userId: user.id,
                 title: args.title,
                 description: args.description,
-                startTime: new Date(args.startTime),
-                endTime: new Date(new Date(args.startTime).getTime() + args.duration * 60000),
+                startTime,
+                endTime: new Date(startTime.getTime() + args.duration * 60000),
                 duration: args.duration,
                 googleEventId,
                 calendarSynced: true,
@@ -421,10 +490,15 @@ export async function POST(req: NextRequest) {
           try {
             const userTimezone = serializedContext?.timezone || 'UTC';
 
+            // Parse the time in user's timezone if provided
+            const parsedStartTime = args.startTime
+              ? parseDateTimeInTimezone(args.startTime, userTimezone)
+              : undefined;
+
             await calendarService.updateMeeting(args.eventId, {
               title: args.title,
               description: args.description,
-              startTime: args.startTime ? new Date(args.startTime) : undefined,
+              startTime: parsedStartTime,
               duration: args.duration,
               timeZone: userTimezone,
             });
@@ -437,7 +511,6 @@ export async function POST(req: NextRequest) {
                 .where(eq(meetings.googleEventId, args.eventId));
             }
 
-            // Debug: Check for Date objects in result before returning
             return { success: true };
           } catch (error) {
             console.error('Error updating meeting:', error);
