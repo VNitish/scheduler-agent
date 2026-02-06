@@ -40,12 +40,8 @@ export function useGoogleAuth() {
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('access_token', data.access_token);
 
-        // Redirect based on role
-        if (data.user.role === 'ADMIN') {
-          window.location.href = '/admin';
-        } else {
-          window.location.href = '/dashboard';
-        }
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Authentication failed');
         console.error('Auth error:', err);
