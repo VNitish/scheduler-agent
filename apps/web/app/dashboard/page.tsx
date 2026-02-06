@@ -64,7 +64,7 @@ export default function DashboardPage() {
       return;
     }
     try {
-      const res = await fetch('/api/voice/latency', {
+      const res = await fetch('/api/voice/message', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
