@@ -124,7 +124,7 @@ export class CalendarService {
   /**
    * Get the last meeting of a specific day
    */
-  async getLastMeetingOfDay(date: Date, timezone: string = 'Asia/Kolkata'): Promise<CalendarEvent | null> {
+  async getLastMeetingOfDay(date: Date, timezone: string = 'UTC'): Promise<CalendarEvent | null> {
     try {
       // Get start and end of day in user's timezone
       const startOfDay = this.setHourInTimezone(date, 0, timezone);
@@ -204,7 +204,7 @@ export class CalendarService {
     // Use advanced method with timezone support
     return this.findAvailableSlotsAdvanced(duration, startDate, endDate, {
       timePreference,
-      timezone: timezone || 'Asia/Kolkata',
+      timezone: timezone || 'UTC',
     });
   }
 
@@ -222,11 +222,11 @@ export class CalendarService {
           description: meeting.description,
           start: {
             dateTime: meeting.startTime.toISOString(),
-            timeZone: meeting.timeZone || 'Asia/Kolkata',
+            timeZone: meeting.timeZone || 'UTC',
           },
           end: {
             dateTime: endTime.toISOString(),
-            timeZone: meeting.timeZone || 'Asia/Kolkata',
+            timeZone: meeting.timeZone || 'UTC',
           },
           attendees: meeting.attendees?.map((email) => ({ email })),
           reminders: {
@@ -263,11 +263,11 @@ export class CalendarService {
         const endTime = new Date(updates.startTime.getTime() + updates.duration * 60000);
         updateData.start = {
           dateTime: updates.startTime.toISOString(),
-          timeZone: updates.timeZone || 'Asia/Kolkata',
+          timeZone: updates.timeZone || 'UTC',
         };
         updateData.end = {
           dateTime: endTime.toISOString(),
-          timeZone: updates.timeZone || 'Asia/Kolkata',
+          timeZone: updates.timeZone || 'UTC',
         };
       }
 
@@ -438,7 +438,7 @@ export class CalendarService {
     const bufferBefore = (options?.bufferBefore || 0) * 60 * 1000;
     const bufferAfter = (options?.bufferAfter || 0) * 60 * 1000;
     const now = new Date();
-    const timezone = options?.timezone || 'Asia/Kolkata';
+    const timezone = options?.timezone || 'UTC';
 
     // Sort busy periods
     busyPeriods.sort((a, b) => a.start.getTime() - b.start.getTime());
