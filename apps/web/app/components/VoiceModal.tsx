@@ -37,7 +37,7 @@ export const VoiceModal = ({
       <div className="bg-card border border-border p-8 max-w-md w-full mx-4">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold">
-            {voiceMode === 'openai' ? 'OpenAI Voice' : 'ElevenLabs Voice'}
+            {voiceMode === 'openai' ? 'OpenAI Voice' : 'ElevenLabs Voice (Dev)'}
           </h3>
           <Button variant="bordered" size="icon" onClick={endVoiceSession}>
             <XIcon className="w-5 h-5" />
@@ -118,7 +118,7 @@ export const VoiceModal = ({
               <p className="mt-3 text-sm font-medium capitalize">
                 {isIdle ? 'Ready' : voiceState}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">ElevenLabs Voice</p>
+              <p className="text-xs text-muted-foreground mt-1">ElevenLabs Voice (Dev)</p>
             </div>
 
             {voiceTranscript && (

@@ -171,7 +171,7 @@ export const ChatInterface = ({
             variant="outline"
             size="icon"
             onClick={startElevenLabsCall}
-            title="ElevenLabs Voice Chat"
+            title="ElevenLabs Voice Chat (Development)"
           >
             <PhoneIcon className="w-4 h-4" />
           </Button>
@@ -181,7 +181,7 @@ export const ChatInterface = ({
             <MicIcon className="w-3 h-3" /> OpenAI Voice
           </span>
           <span className="flex items-center gap-1">
-            <PhoneIcon className="w-3 h-3" /> ElevenLabs Voice
+            <PhoneIcon className="w-3 h-3" /> ElevenLabs (Dev)
           </span>
         </div>
       </div>
