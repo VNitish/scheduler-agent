@@ -468,7 +468,7 @@ export async function POST(req: NextRequest) {
             nicknames: nicknames.length > 0 ? nicknames : [],
             relation: relation || null,
             company: null,
-            timezone: 'Asia/Kolkata', // Default timezone
+            timezone: 'UTC', // Default timezone
           }).returning();
 
           let response = `Added ${name} to your contacts`;

@@ -38,60 +38,14 @@ export async function POST(req: NextRequest) {
     const userToken = authHeader.replace('Bearer ', '');
 
     // Find user by access token
-    let [user] = await db
+    const [user] = await db
       .select()
       .from(users)
       .where(eq(users.googleAccessToken, userToken))
       .limit(1);
 
-    // If user not found, token might be expired - try to find by any token and refresh
     if (!user) {
-
-      // Try to find ANY user with a refresh token (for development/single user scenarios)
-      // In production, you'd need a better way to identify the user (like a session cookie)
-      const [anyUser] = await db
-        .select()
-        .from(users)
-        .limit(1);
-
-      if (!anyUser || !anyUser.googleRefreshToken) {
-        return NextResponse.json({ error: 'User not found or no refresh token' }, { status: 404 });
-      }
-
-      // Try to refresh the token
-      try {
-        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '',
-            client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
-            refresh_token: anyUser.googleRefreshToken,
-            grant_type: 'refresh_token',
-          }),
-        });
-
-        if (tokenResponse.ok) {
-          const tokens = await tokenResponse.json();
-
-          // Update the user with new token
-          await db
-            .update(users)
-            .set({ googleAccessToken: tokens.access_token })
-            .where(eq(users.id, anyUser.id));
-
-          user = { ...anyUser, googleAccessToken: tokens.access_token };
-        } else {
-          return NextResponse.json({ error: 'Token refresh failed' }, { status: 401 });
-        }
-      } catch (error) {
-        console.error('[Chat] Token refresh error:', error);
-        return NextResponse.json({ error: 'Token refresh failed' }, { status: 401 });
-      }
-    }
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Invalid or expired token. Please log in again.' }, { status: 401 });
     }
 
     // Get or create conversation
@@ -190,9 +144,15 @@ export async function POST(req: NextRequest) {
     const serializedContext = agentContext ? JSON.parse(JSON.stringify(agentContext)) : undefined;
     const serializedContacts = JSON.parse(JSON.stringify(agentContacts));
 
+    // Validate OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY environment variable is not set');
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
     // Initialize AI agent
     const agent = new SchedulerAgent(
-      process.env.OPENAI_API_KEY!,
+      process.env.OPENAI_API_KEY,
       'gpt-4o-mini'
     );
 
@@ -264,7 +224,7 @@ export async function POST(req: NextRequest) {
           }
 
           // Get user's timezone
-          const userTimezone = serializedContext?.timezone || 'Asia/Kolkata';
+          const userTimezone = serializedContext?.timezone || 'UTC';
 
           // Parse dates - they come as YYYY-MM-DD strings from the LLM
           // Create dates at start/end of day in user's timezone
@@ -373,7 +333,7 @@ export async function POST(req: NextRequest) {
 
           const startDate = args.startDate ? new Date(args.startDate) : undefined;
           const endDate = args.endDate ? new Date(args.endDate) : undefined;
-          const userTimezone = serializedContext?.timezone || 'Asia/Kolkata';
+          const userTimezone = serializedContext?.timezone || 'UTC';
 
           const events = await calendarService.searchEvents(
             args.searchQuery,
@@ -416,7 +376,7 @@ export async function POST(req: NextRequest) {
             return null;
           }
 
-          const userTimezone = serializedContext?.timezone || 'Asia/Kolkata';
+          const userTimezone = serializedContext?.timezone || 'UTC';
           const event = await calendarService.getLastMeetingOfDay(new Date(args.date), userTimezone);
 
           if (!event) return null;
@@ -511,7 +471,7 @@ export async function POST(req: NextRequest) {
               .orderBy(meetings.startTime);
 
             // Get user's timezone
-            const userTimezone = contextData?.timezone || serializedContext?.timezone || 'Asia/Kolkata';
+            const userTimezone = contextData?.timezone || serializedContext?.timezone || 'UTC';
 
             // Format times in user's timezone
             const formatInTimezone = (date: Date | string) => {

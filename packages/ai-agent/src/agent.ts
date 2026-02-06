@@ -541,7 +541,7 @@ export class SchedulerAgent {
 
   private getSystemPrompt(userContext?: UserContext, userContacts?: UserContact[], recentMeetings?: any[]): string {
     const today = new Date();
-    const userTimezone = userContext?.timezone || 'Asia/Kolkata';
+    const userTimezone = userContext?.timezone || 'UTC';
 
     const dateStr = today.toLocaleDateString('en-US', {
       weekday: 'long',
