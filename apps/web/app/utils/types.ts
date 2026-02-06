@@ -56,41 +56,74 @@ export interface VoiceSessionRefs {
 }
 
 /**
- * Formats a date string to a localized time string
+ * Gets the user's timezone from localStorage or falls back to browser timezone
+ */
+export const getUserTimezone = (): string => {
+  if (typeof window !== 'undefined') {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user.timezone) return user.timezone;
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
+    // Fallback to browser's timezone
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+  return 'UTC';
+};
+
+/**
+ * Formats a date string to a localized time string in user's timezone
  * @param dateStr - Date string in ISO format
  * @returns Formatted time string (e.g., "2:30 PM")
  */
 export const formatTime = (dateStr: string) => {
   const date = new Date(dateStr);
-  return date.toLocaleTimeString('en-IN', {
+  const timezone = getUserTimezone();
+  return date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZone: 'UTC',
+    timeZone: timezone,
   });
 };
 
 /**
- * Checks if a given date string represents today
+ * Checks if a given date string represents today in user's timezone
  * @param dateStr - Date string in ISO format
  * @returns True if the date is today, false otherwise
  */
 export const isToday = (dateStr: string) => {
+  const timezone = getUserTimezone();
   const date = new Date(dateStr);
   const today = new Date();
-  return date.toDateString() === today.toDateString();
+
+  // Format both dates in user's timezone to compare
+  const dateInTz = date.toLocaleDateString('en-CA', { timeZone: timezone });
+  const todayInTz = today.toLocaleDateString('en-CA', { timeZone: timezone });
+
+  return dateInTz === todayInTz;
 };
 
 /**
- * Checks if a given date string represents tomorrow
+ * Checks if a given date string represents tomorrow in user's timezone
  * @param dateStr - Date string in ISO format
  * @returns True if the date is tomorrow, false otherwise
  */
 export const isTomorrow = (dateStr: string) => {
+  const timezone = getUserTimezone();
   const date = new Date(dateStr);
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return date.toDateString() === tomorrow.toDateString();
+
+  // Format both dates in user's timezone to compare
+  const dateInTz = date.toLocaleDateString('en-CA', { timeZone: timezone });
+  const tomorrowInTz = tomorrow.toLocaleDateString('en-CA', { timeZone: timezone });
+
+  return dateInTz === tomorrowInTz;
 };
 
 /**
