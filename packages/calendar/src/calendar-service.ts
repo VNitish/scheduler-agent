@@ -60,6 +60,22 @@ export class CalendarService {
   }
 
   /**
+   * Get the user's timezone from their primary Google Calendar settings
+   * This is automatically detected by Google based on the user's location/settings
+   */
+  async getTimezone(): Promise<string> {
+    try {
+      const response = await this.calendar.settings.get({
+        setting: 'timezone',
+      });
+      return response.data.value || 'UTC';
+    } catch (error) {
+      console.error('Error fetching calendar timezone:', error);
+      return 'UTC';
+    }
+  }
+
+  /**
    * Get calendar events in a date range
    */
   async getEvents(timeMin: Date, timeMax: Date): Promise<CalendarEvent[]> {

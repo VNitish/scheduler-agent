@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, users } from '@repo/database';
+import { db, users, userContext, eq } from '@repo/database';
+import { CalendarService } from '@repo/calendar';
 
 export async function POST(req: NextRequest) {
   try {
@@ -70,6 +71,40 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
+    // Auto-detect timezone from Google Calendar and store in user context
+    let detectedTimezone = 'UTC';
+    try {
+      const calendarService = new CalendarService(access_token, refresh_token);
+      detectedTimezone = await calendarService.getTimezone();
+
+      // Create or update user context with detected timezone
+      const [existingContext] = await db
+        .select()
+        .from(userContext)
+        .where(eq(userContext.userId, user.id))
+        .limit(1);
+
+      if (existingContext) {
+        // Only update timezone if not already set (respect user's manual preference)
+        if (!existingContext.timezone) {
+          await db
+            .update(userContext)
+            .set({ timezone: detectedTimezone, updatedAt: new Date() })
+            .where(eq(userContext.userId, user.id));
+        }
+      } else {
+        // Create new user context with detected timezone and user's name
+        await db.insert(userContext).values({
+          userId: user.id,
+          displayName: userInfo.name,
+          timezone: detectedTimezone,
+        });
+      }
+    } catch (tzError) {
+      console.error('Error detecting timezone:', tzError);
+      // Continue without timezone - not critical
+    }
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -78,6 +113,7 @@ export async function POST(req: NextRequest) {
         image: user.image,
         role: user.role,
         calendarConnected: user.calendarConnected,
+        timezone: detectedTimezone,
       },
       access_token,
     });
