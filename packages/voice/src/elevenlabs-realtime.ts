@@ -73,6 +73,13 @@ export class ElevenLabsRealtimeClient {
           },
         };
 
+        // Add system prompt override if provided
+        if (this.systemPrompt) {
+          initData.conversation_config_override.agent.prompt = {
+            prompt: this.systemPrompt,
+          };
+        }
+
         this.ws?.send(JSON.stringify(initData));
       };
 
